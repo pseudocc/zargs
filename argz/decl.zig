@@ -24,6 +24,7 @@ path: []const []const u8,
 action: Action = .assign,
 long: []const u8 = "",
 short: u8 = 0,
+metavar: []const u8 = "",
 delimiter: ?Delimiter = null,
 
 pub fn This(comptime self: @This(), comptime T: type) type {
@@ -36,6 +37,42 @@ pub fn this(comptime self: @This(), comptime T: type, ptr: *T) *self.This(T) {
 
 pub fn isPositional(comptime self: @This()) bool {
     return self.long.len == 0 and self.short == 0;
+}
+
+pub fn isRequired(comptime self: @This(), comptime T: type) bool {
+    return switch (self.action) {
+        .assign => field.isRequired(T, self.path),
+        else => false,
+    };
+}
+
+pub fn title(comptime self: @This()) []const u8 {
+    const print = std.fmt.comptimePrint;
+    if (self.long.len != 0 and self.short != 0)
+        return print("--{s}, -{c}", .{ self.long, self.short });
+    if (self.long.len != 0)
+        return print("--{s}", .{self.long});
+    if (self.short != 0)
+        return print("-{c}", .{self.short});
+    if (self.metavar.len != 0)
+        return self.metavar;
+
+    const metavar = comptime join: {
+        var buffer: [1024]u8 = undefined;
+        var n: usize = 0;
+        for (self.path) |name| {
+            if (n != 0) {
+                buffer[n] = '.';
+                n += 1;
+            }
+            for (name) |c| {
+                buffer[n] = std.ascii.toUpper(c);
+                n += 1;
+            }
+        }
+        break :join buffer[0..n].*;
+    };
+    return &metavar;
 }
 
 fn TokenIterator(comptime self: @This()) type {

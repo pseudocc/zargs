@@ -13,6 +13,7 @@ pub const ParseError = error{
     ArrayOverflow,
     ArrayUnderflow,
     NotSupported,
+    MissingRequired,
 } || std.mem.Allocator.Error;
 
 const E = ParseError;

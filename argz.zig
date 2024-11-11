@@ -309,6 +309,13 @@ fn parseFinal(comptime T: type, args: *ArgIterator, arena: Allocator) E!T {
         }
     }
 
+    inline for (argz, 0..) |z, i| if (comptime z.isRequired(T)) {
+        if (!finishes[i]) {
+            log.err("Missing required argument: {s}", .{z.title()});
+            return E.MissingRequired;
+        }
+    };
+
     return result;
 }
 
@@ -379,6 +386,9 @@ test Parser {
 
         const noop = try parser.parse(Commands, &.{"noop"});
         try testing.expectEqual(Commands.noop, noop);
+
+        const failure = parser.parse(Commands, &.{ "add", "42" });
+        try testing.expectError(E.MissingRequired, failure);
     }
 
     {
@@ -423,5 +433,8 @@ test Parser {
         try testing.expectEqual(1, release.defines.len);
         try testing.expectEqualStrings("FOO", release.defines[0]);
         try testing.expectEqualStrings("main.c", release.filename);
+
+        const failure = parser.parse(Simple, &.{ "--release", "main.c", "-DFOO", "extra.h" });
+        try testing.expectError(E.UnhandledPositional, failure);
     }
 }

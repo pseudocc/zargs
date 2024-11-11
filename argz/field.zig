@@ -92,3 +92,33 @@ test ptrOf {
     ptrOf(Rectangle, fields, &rect).* = 5;
     try std.testing.expectEqual(5, rect.position.x);
 }
+
+fn isRequiredField(comptime field: std.builtin.Type.StructField) bool {
+    return !metaz.isOptional(field.type) and field.default_value == null;
+}
+
+pub fn isRequired(comptime T: type, comptime path: []const []const u8) bool {
+    var field: std.builtin.Type.StructField = Field(T, path[0]);
+    if (!isRequiredField(field))
+        return false;
+    inline for (path[1..]) |field_name| {
+        field = Field(field.type, field_name);
+        if (!isRequiredField(field))
+            return false;
+    }
+    return true;
+}
+
+test isRequired {
+    const A = struct {
+        a: i32,
+        b: ?i32,
+        c: i32 = 0,
+    };
+
+    comptime {
+        try testing.expectEqual(true, isRequired(A, &.{"a"}));
+        try testing.expectEqual(false, isRequired(A, &.{"b"}));
+        try testing.expectEqual(false, isRequired(A, &.{"c"}));
+    }
+}
