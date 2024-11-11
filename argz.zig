@@ -282,7 +282,7 @@ fn parseFinal(comptime T: type, args: *ArgIterator, arena: Allocator) E!T {
                     args.advance();
                     found = true;
                 },
-                .string => if (z.long.len == 0 and z.short == 0) {
+                .string => if (z.isPositional()) {
                     found = true;
                 },
             }

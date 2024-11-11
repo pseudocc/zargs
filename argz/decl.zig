@@ -34,6 +34,10 @@ pub fn this(comptime self: @This(), comptime T: type, ptr: *T) *self.This(T) {
     return field.ptrOf(T, self.path, ptr);
 }
 
+pub fn isPositional(comptime self: @This()) bool {
+    return self.long.len == 0 and self.short == 0;
+}
+
 fn TokenIterator(comptime self: @This()) type {
     const delimiter = self.delimiter orelse @compileError("Argz.delimiter is required for collections");
     const activeTag = comptime std.meta.activeTag(delimiter);
