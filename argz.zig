@@ -9,7 +9,12 @@ const basic = @import("argz/parse.zig");
 const metaz = @import("argz/meta.zig");
 const E = basic.ParseError;
 
-const log = if (builtin.is_test) std.log else std.log.scoped(.argz);
+const log = if (builtin.is_test) struct {
+    const debug = std.log.debug;
+    const info = std.log.info;
+    const warn = std.log.info;
+    const err = std.log.info;
+} else std.log.scoped(.argz);
 
 fn parseCommand(comptime T: type, args: *ArgIterator, arena: Allocator) E!T {
     const next_arg = try nextString(args);
