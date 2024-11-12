@@ -271,11 +271,7 @@ fn parseFinal(comptime T: type, args: *ArgIterator, arena: Allocator) E!T {
 
     while (args.peek()) |arg| {
         var found = false;
-        switch (arg) {
-            .string => |string| log.debug("Parsing {s}", .{string}),
-            .short_option => |short| log.debug("Parsing -{c}", .{short}),
-            .long_option => |long| log.debug("Parsing --{s}", .{long}),
-        }
+        log.debug("Parsing {}", .{arg});
 
         inline for (argz, 0..) |z, i| if (!finishes[i]) {
             switch (arg) {

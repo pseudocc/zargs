@@ -10,6 +10,25 @@ const Item = union(enum) {
     string: []const u8,
     short_option: u8,
     long_option: []const u8,
+
+    pub fn format(
+        self: @This(),
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        const bufPrint = std.fmt.bufPrint;
+        const formatText = std.fmt.formatText;
+        if (fmt.len != 0)
+            return std.fmt.invalidFmtError(fmt, self);
+        var buffer: [1024]u8 = undefined;
+        const text = switch (self) {
+            .string => |string| string,
+            .short_option => |short| try bufPrint(&buffer, "-{c}", .{short}),
+            .long_option => |long| try bufPrint(&buffer, "--{s}", .{long}),
+        };
+        try formatText(text, "s", options, writer);
+    }
 };
 
 pub fn peek(self: *Self) ?Item {
