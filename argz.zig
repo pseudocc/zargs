@@ -50,7 +50,7 @@ fn reaction(
     const This = z.This(T);
     const this: *This = z.this(T, ptr);
     const is_optional = comptime metaz.isOptional(This);
-    const is_string = comptime (This == []const u8 and z.delimiter == null);
+    const is_string = comptime z.isString(T);
 
     log.debug(
         \\T: {s}, path: {s}, long: {s}, short: {c},
