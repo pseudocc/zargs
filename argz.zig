@@ -64,6 +64,13 @@ fn reaction(
         z.action,
     });
 
+    switch (@typeInfo(This)) {
+        .pointer => |pointer| if (pointer.size != .Slice) {
+            @compileError("Only slices are supported for pointers, but got: " ++ @typeName(This) ++ " (" ++ z.title() ++ ")");
+        },
+        else => {},
+    }
+
     switch (z.action) {
         .store => |opaque_ptr| {
             const embedded: *const This = @alignCast(@ptrCast(opaque_ptr));
