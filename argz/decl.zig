@@ -20,6 +20,101 @@ const Delimiter = union(std.mem.DelimiterType) {
     scalar: u8,
 };
 
+const Help = struct {
+    title: []const u8,
+    description: []const u8,
+    type: []const u8,
+    default: ?[]const u8,
+
+    const FormatContext = struct {
+        const INDENT = "  ";
+        width: usize,
+        offset: usize,
+        x: usize,
+
+        fn init(width: usize) FormatContext {
+            return .{ .width = width, .offset = width / 3, .x = 0 };
+        }
+
+        fn title(ctx: *@This(), text: []const u8, writer: anytype) !void {
+            try std.fmt.format(writer, INDENT ++ "{s}:", .{text});
+            ctx.x += text.len + INDENT.len + 1;
+            if (ctx.x >= ctx.offset) {
+                try writer.writeByte('\n');
+                ctx.x = 0;
+            }
+        }
+
+        fn pad(ctx: *@This(), writer: anytype) !void {
+            while (ctx.x < ctx.offset) : (ctx.x += 1) {
+                try writer.writeByte(' ');
+            }
+        }
+
+        fn newline(ctx: *@This(), writer: anytype) !void {
+            try std.fmt.format(writer, "\n", .{});
+            ctx.x = 0;
+        }
+
+        fn boundary(ctx: *@This(), writer: anytype) !void {
+            try ctx.newline(writer);
+            try ctx.newline(writer);
+        }
+
+        fn word(ctx: *@This(), text: []const u8, writer: anytype) !void {
+            if (ctx.x + text.len + 1 >= ctx.width) {
+                try ctx.newline(writer);
+            }
+            try ctx.pad(writer);
+            try std.fmt.format(writer, " {s}", .{text});
+            ctx.x += text.len + 1;
+        }
+    };
+
+    pub fn format(
+        self: @This(),
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        if (fmt.len != 0)
+            return std.fmt.invalidFmtError(fmt, self);
+
+        var ctx = FormatContext.init(options.width orelse 80);
+        try ctx.title(self.title, writer);
+        var paragraphs = std.mem.splitSequence(u8, self.description, "\n\n");
+        var first_paragraph = true;
+        while (paragraphs.next()) |p| {
+            if (first_paragraph) {
+                first_paragraph = false;
+            } else {
+                try ctx.boundary(writer);
+            }
+            var words = std.mem.tokenizeAny(u8, p, " \n\t");
+            while (words.next()) |word| {
+                try ctx.word(word, writer);
+            }
+        }
+        try ctx.newline(writer);
+        try ctx.pad(writer);
+        try ctx.word(self.type, writer);
+        try writer.writeByte(':');
+        ctx.x += 1;
+        try ctx.word(self.default orelse "required", writer);
+    }
+};
+
+test Help {
+    std.testing.log_level = .debug;
+    const help = Help{
+        .title = "--output, -o",
+        .description = "Output file path",
+        .type = "string",
+        .default = "/var/tmp/output.txt",
+    };
+    std.log.info("\n{}", .{help});
+}
+
 path: []const []const u8,
 action: Action = .assign,
 long: []const u8 = "",

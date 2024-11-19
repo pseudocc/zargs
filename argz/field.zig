@@ -2,7 +2,7 @@ const std = @import("std");
 const metaz = @import("meta.zig");
 const testing = std.testing;
 
-fn Field(comptime T: type, comptime name: []const u8) std.builtin.Type.StructField {
+pub fn Field(comptime T: type, comptime name: []const u8) std.builtin.Type.StructField {
     switch (@typeInfo(T)) {
         .@"struct" => |info| {
             inline for (info.fields) |field| {
@@ -14,6 +14,14 @@ fn Field(comptime T: type, comptime name: []const u8) std.builtin.Type.StructFie
         .optional => |info| Field(info.child, name),
         else => @compileError("Field lookup is only supported for structs"),
     }
+}
+
+pub fn DeepField(comptime T: type, comptime path: []const []const u8) std.builtin.Type.StructField {
+    var result: std.builtin.Type.StructField = Field(T, path[0]);
+    inline for (path[1..]) |field_name| {
+        result = Field(result.type, field_name);
+    }
+    return result;
 }
 
 pub fn FieldType(comptime T: type, comptime name: []const u8) type {
