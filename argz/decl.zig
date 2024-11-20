@@ -23,8 +23,10 @@ const Delimiter = union(std.mem.DelimiterType) {
 const Help = struct {
     title: []const u8,
     description: []const u8,
-    type: []const u8,
-    default: ?[]const u8,
+    additional: ?struct {
+        type: []const u8,
+        default: ?[]const u8,
+    },
 
     const FormatContext = struct {
         const INDENT = "  ";
@@ -40,8 +42,7 @@ const Help = struct {
             try std.fmt.format(writer, INDENT ++ "{s}:", .{text});
             ctx.x += text.len + INDENT.len + 1;
             if (ctx.x >= ctx.offset) {
-                try writer.writeByte('\n');
-                ctx.x = 0;
+                try ctx.newline(writer);
             }
         }
 
@@ -82,25 +83,29 @@ const Help = struct {
 
         var ctx = FormatContext.init(options.width orelse 80);
         try ctx.title(self.title, writer);
-        var paragraphs = std.mem.splitSequence(u8, self.description, "\n\n");
-        var first_paragraph = true;
-        while (paragraphs.next()) |p| {
-            if (first_paragraph) {
-                first_paragraph = false;
-            } else {
-                try ctx.boundary(writer);
+        if (self.description.len != 0) {
+            var paragraphs = std.mem.splitSequence(u8, self.description, "\n\n");
+            var first_paragraph = true;
+            while (paragraphs.next()) |p| {
+                if (first_paragraph) {
+                    first_paragraph = false;
+                } else {
+                    try ctx.boundary(writer);
+                }
+                var words = std.mem.tokenizeAny(u8, p, " \n\t");
+                while (words.next()) |word| {
+                    try ctx.word(word, writer);
+                }
             }
-            var words = std.mem.tokenizeAny(u8, p, " \n\t");
-            while (words.next()) |word| {
-                try ctx.word(word, writer);
-            }
+            try ctx.newline(writer);
+            try ctx.pad(writer);
         }
-        try ctx.newline(writer);
-        try ctx.pad(writer);
-        try ctx.word(self.type, writer);
-        try writer.writeByte(':');
-        ctx.x += 1;
-        try ctx.word(self.default orelse "required", writer);
+        if (self.additional) |additional| {
+            var buffer: [1024]u8 = undefined;
+            const type_string = try std.fmt.bufPrint(&buffer, "({s})", .{additional.type});
+            try ctx.word(type_string, writer);
+            try ctx.word(additional.default orelse "required", writer);
+        }
     }
 };
 
@@ -109,8 +114,10 @@ test Help {
     const help = Help{
         .title = "--output, -o",
         .description = "Output file path",
-        .type = "string",
-        .default = "/var/tmp/output.txt",
+        .additional = .{
+            .type = "string",
+            .default = "/var/tmp/output.txt",
+        },
     };
     std.log.info("\n{}", .{help});
 }
@@ -121,6 +128,7 @@ long: []const u8 = "",
 short: u8 = 0,
 metavar: []const u8 = "",
 delimiter: ?Delimiter = null,
+description: []const u8 = "",
 
 pub fn This(comptime self: @This(), comptime T: type) type {
     return field.DeepFieldType(T, self.path);
