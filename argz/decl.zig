@@ -156,7 +156,7 @@ pub fn this(comptime self: @This(), comptime T: type, ptr: *T) *self.This(T) {
 }
 
 pub fn isString(comptime self: @This(), comptime T: type) bool {
-    return (self.delimiter == null and self.This(T) == []const u8);
+    return std.mem.eql(u8, self.typeName(T), "string");
 }
 
 pub fn isPositional(comptime self: @This()) bool {
@@ -168,6 +168,36 @@ pub fn isRequired(comptime self: @This(), comptime T: type) bool {
         .assign => field.isRequired(T, self.path),
         else => false,
     };
+}
+
+fn simpleType(comptime T: type) []const u8 {
+    if (T == []const u8)
+        return "string";
+    const print = std.fmt.comptimePrint;
+    return switch (@typeInfo(T)) {
+        .pointer => |pointer| print("[]{s}", .{comptime simpleType(pointer.child)}),
+        .optional => |optional| print("?{s}", .{comptime simpleType(optional.child)}),
+        .array => |array| print("[{d}]{s}", .{ array.len, comptime simpleType(array.child) }),
+        .@"enum" => "enum",
+        .@"union", .@"struct" => unreachable,
+        else => @typeName(T),
+    };
+}
+
+test simpleType {
+    try std.testing.expectEqualStrings("string", simpleType([]const u8));
+    try std.testing.expectEqualStrings("[]string", simpleType([]const []const u8));
+    try std.testing.expectEqualStrings("?string", simpleType(?[]const u8));
+    try std.testing.expectEqualStrings("[10]u8", simpleType([10]u8));
+    try std.testing.expectEqualStrings("enum", simpleType(enum { A, B }));
+}
+
+fn typeName(comptime self: @This(), comptime T: type) []const u8 {
+    const ThisT = self.This(T);
+    if (ThisT == []const u8) {
+        return if (self.delimiter == null) "string" else "[]u8";
+    }
+    return simpleType(ThisT);
 }
 
 pub fn title(comptime self: @This()) []const u8 {
