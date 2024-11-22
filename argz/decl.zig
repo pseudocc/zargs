@@ -23,9 +23,10 @@ const Delimiter = union(std.mem.DelimiterType) {
 const Help = struct {
     title: []const u8,
     description: []const u8,
+    required: bool,
     additional: ?struct {
         type: []const u8,
-        default: ?[]const u8,
+        value: ?[]const u8,
     },
 
     const FormatContext = struct {
@@ -88,6 +89,8 @@ const Help = struct {
             var first_paragraph = true;
             while (paragraphs.next()) |p| {
                 if (first_paragraph) {
+                    if (self.required)
+                        try ctx.word("(required)", writer);
                     first_paragraph = false;
                 } else {
                     try ctx.boundary(writer);
@@ -97,6 +100,7 @@ const Help = struct {
                     try ctx.word(word, writer);
                 }
             }
+
             try ctx.newline(writer);
             try ctx.pad(writer);
         }
@@ -104,22 +108,35 @@ const Help = struct {
             var buffer: [1024]u8 = undefined;
             const type_string = try std.fmt.bufPrint(&buffer, "({s})", .{additional.type});
             try ctx.word(type_string, writer);
-            try ctx.word(additional.default orelse "required", writer);
+            if (additional.value) |value|
+                try ctx.word(value, writer);
         }
     }
 };
 
 test Help {
     std.testing.log_level = .debug;
-    const help = Help{
+    const output_help = Help{
         .title = "--output, -o",
         .description = "Output file path",
+        .required = false,
         .additional = .{
             .type = "string",
-            .default = "/var/tmp/output.txt",
+            .value = "/var/tmp/output.txt",
         },
     };
-    std.log.info("\n{}", .{help});
+    std.log.info("\n{}", .{output_help});
+
+    const input_help = Help{
+        .title = "--input, -i",
+        .description = "Input file type",
+        .required = true,
+        .additional = .{
+            .type = "enum",
+            .value = "json yaml",
+        },
+    };
+    std.log.info("\n{}", .{input_help});
 }
 
 path: []const []const u8,
