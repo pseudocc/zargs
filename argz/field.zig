@@ -2,38 +2,53 @@ const std = @import("std");
 const metaz = @import("meta.zig");
 const testing = std.testing;
 
-pub fn Field(comptime T: type, comptime name: []const u8) std.builtin.Type.StructField {
-    switch (@typeInfo(T)) {
-        .@"struct" => |info| {
+const builtin = std.builtin.Type;
+
+pub const StructField = struct {
+    name: [:0]const u8,
+    type: type,
+    default_value: ?*const anyopaque,
+    is_comptime: bool,
+    offset: comptime_int,
+
+    pub fn from(comptime T: type, field: builtin.StructField) StructField {
+        return StructField{
+            .name = field.name,
+            .type = field.type,
+            .default_value = field.default_value,
+            .is_comptime = field.is_comptime,
+            .offset = @offsetOf(T, field.name),
+        };
+    }
+
+    pub fn isRequired(self: StructField) bool {
+        return !metaz.isOptional(self.type) and self.default_value == null;
+    }
+};
+
+pub fn Field(comptime T: type, comptime name: []const u8) StructField {
+    const builtin_field = switch (@typeInfo(T)) {
+        .@"struct" => |info| z: {
             inline for (info.fields) |field| {
                 if (std.mem.eql(u8, field.name, name))
-                    return field;
+                    break :z field;
             }
             @compileError("No such field: \"" ++ name ++ "\" in " ++ @typeName(T));
         },
         .optional => |info| Field(info.child, name),
         else => @compileError("Field lookup is only supported for structs"),
-    }
+    };
+    return StructField.from(T, builtin_field);
 }
 
-pub fn DeepField(comptime T: type, comptime path: []const []const u8) std.builtin.Type.StructField {
-    var result: std.builtin.Type.StructField = Field(T, path[0]);
-    inline for (path[1..]) |field_name| {
-        result = Field(result.type, field_name);
+pub fn DeepField(comptime T: type, comptime path: []const []const u8) StructField {
+    var now: StructField = std.mem.zeroInit(StructField, .{ .type = T });
+    inline for (path) |name| {
+        var next = Field(now.type, name);
+        next.offset += now.offset;
+        now = next;
     }
-    return result;
-}
-
-pub fn FieldType(comptime T: type, comptime name: []const u8) type {
-    return Field(T, name).type;
-}
-
-pub fn DeepFieldType(comptime T: type, comptime path: []const []const u8) type {
-    var result: type = T;
-    inline for (path) |field_name| {
-        result = FieldType(result, field_name);
-    }
-    return result;
+    return now;
 }
 
 fn count(comptime path: []const u8) usize {
@@ -59,24 +74,9 @@ test splitPath {
     try std.testing.expectEqualStrings("x", fields[1]);
 }
 
-pub fn ptrOf(comptime T: type, comptime fields: []const []const u8, ptr: *T) *DeepFieldType(T, fields) {
-    const fields_ty: [fields.len + 1]type = comptime ty: {
-        var result: [fields.len + 1]type = undefined;
-        var i: usize = 0;
-        result[i] = @TypeOf(ptr.*);
-        for (fields) |field| {
-            result[i + 1] = FieldType(result[i], field);
-            i += 1;
-        }
-        break :ty result;
-    };
-    var fields_ptr: [fields.len + 1]usize = undefined;
-    fields_ptr[0] = @intFromPtr(ptr);
-    inline for (fields, 0..) |field, i| {
-        const typed_ptr: *fields_ty[i] = @ptrFromInt(fields_ptr[i]);
-        fields_ptr[i + 1] = @intFromPtr(&@field(typed_ptr, field));
-    }
-    return @ptrFromInt(fields_ptr[fields.len]);
+pub fn ptrOf(comptime T: type, comptime fields: []const []const u8, container: *T) *DeepField(T, fields).type {
+    const field = DeepField(T, fields);
+    return @ptrFromInt(@intFromPtr(container) + field.offset);
 }
 
 test ptrOf {
@@ -97,21 +97,16 @@ test ptrOf {
 
     try std.testing.expectEqual(1, rect.position.x);
     const fields = comptime splitPath("position.x");
+    try std.testing.expectEqual(0, DeepField(Rectangle, fields).offset);
     ptrOf(Rectangle, fields, &rect).* = 5;
     try std.testing.expectEqual(5, rect.position.x);
 }
 
-fn isRequiredField(comptime field: std.builtin.Type.StructField) bool {
-    return !metaz.isOptional(field.type) and field.default_value == null;
-}
-
 pub fn isRequired(comptime T: type, comptime path: []const []const u8) bool {
-    var field: std.builtin.Type.StructField = Field(T, path[0]);
-    if (!isRequiredField(field))
-        return false;
-    inline for (path[1..]) |field_name| {
+    var field: StructField = std.mem.zeroInit(StructField, .{ .type = T });
+    inline for (path) |field_name| {
         field = Field(field.type, field_name);
-        if (!isRequiredField(field))
+        if (!field.isRequired())
             return false;
     }
     return true;
