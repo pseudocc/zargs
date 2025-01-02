@@ -3,8 +3,9 @@ const testing = std.testing;
 
 const types = @import("types.zig");
 const string = types.string;
+const cstring = types.cstring;
 
-args: []const string,
+args: []const cstring,
 index: usize = 1,
 short_index: usize = 0,
 short_chain: bool = false,
@@ -58,7 +59,7 @@ pub fn peek(self: *Self) ?Item {
     if (self.index >= self.args.len)
         return null;
 
-    const arg = self.args[self.index];
+    const arg = std.mem.sliceTo(self.args[self.index], 0);
     inline for (.{ "", "-", "--" }) |sep| {
         if (std.mem.eql(u8, sep, arg))
             return .{ .string = arg };
@@ -91,7 +92,7 @@ pub fn advance(self: *Self) void {
             return;
         }
 
-        const arg = self.args[self.index];
+        const arg = std.mem.sliceTo(self.args[self.index], 0);
         if (arg.len == self.short_index + 1) {
             self.short_index = 0;
             self.short_chain = false;
@@ -109,7 +110,7 @@ pub fn next(self: *Self) ?Item {
     return self.peek();
 }
 
-pub fn argv(self: Self) []const string {
+pub fn argv(self: Self) []const cstring {
     return self.args[0..self.index];
 }
 

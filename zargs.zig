@@ -10,6 +10,7 @@ const ArgIterator = @import("zargs/iterator.zig");
 
 const types = @import("zargs/types.zig");
 pub const string = types.string;
+pub const cstring = types.cstring;
 
 const primary = @import("zargs/parse.zig");
 pub const ParseError = error{
@@ -37,7 +38,7 @@ args: ArgIterator,
 env_map: std.process.EnvMap,
 file: std.fs.File.Writer,
 
-pub fn init(allocator: Allocator, args: []const string) !Self {
+pub fn init(allocator: Allocator, args: []const cstring) !Self {
     return .{
         .arena = std.heap.ArenaAllocator.init(allocator),
         .args = ArgIterator{ .args = args },
@@ -365,7 +366,7 @@ pub fn parse(self: *Self, comptime T: type) E!T {
     }
 }
 
-fn e2ePrepare(self: *Self, args: []const string) void {
+fn e2ePrepare(self: *Self, args: []const cstring) void {
     self.args = ArgIterator{ .args = args, .index = 0 };
 }
 

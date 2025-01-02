@@ -4,6 +4,7 @@ const Help = @import("help.zig");
 
 const types = @import("types.zig");
 const string = types.string;
+const cstring = types.cstring;
 
 fn baseHelp(comptime T: type) Help.Base {
     comptime {
@@ -29,7 +30,7 @@ fn baseHelp(comptime T: type) Help.Base {
     }
 }
 
-pub fn help(comptime T: type, argv: []const string) Help {
+pub fn help(comptime T: type, argv: []const cstring) Help {
     const base = comptime baseHelp(T);
     return .{
         .argv = argv,

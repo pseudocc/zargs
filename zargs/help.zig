@@ -4,6 +4,7 @@ const root = @import("root");
 
 const types = @import("types.zig");
 const string = types.string;
+const cstring = types.cstring;
 
 pub const Base = struct {
     usage: string,
@@ -13,7 +14,7 @@ pub const Base = struct {
     environment: []const Parameter = &.{},
 };
 
-argv: []const string,
+argv: []const cstring,
 base: Base,
 
 pub fn format(
@@ -33,7 +34,7 @@ pub fn format(
 
         try ctx.section("USAGE", writer);
         for (self.argv) |arg| {
-            try ctx.word(arg, writer);
+            try ctx.word(std.mem.sliceTo(arg, 0), writer);
         }
         try ctx.paragraphs(self.base.usage, writer);
         try ctx.newline(writer);

@@ -5,6 +5,7 @@ const Help = @import("help.zig");
 
 const types = @import("types.zig");
 const string = types.string;
+const cstring = types.cstring;
 
 const ArgIterator = @import("iterator.zig");
 
@@ -72,7 +73,7 @@ fn baseHelp(comptime Container: type) Help.Base {
     }
 }
 
-pub fn help(comptime Container: type, argv: []const string) Help {
+pub fn help(comptime Container: type, argv: []const cstring) Help {
     const base = comptime baseHelp(Container);
     return .{
         .argv = argv,
