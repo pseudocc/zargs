@@ -4,16 +4,9 @@ const testing = std.testing;
 const Type = std.builtin.Type;
 
 pub const ParseError = error{
-    UnknownOption,
-    UnhandledPositional,
     MissingArgument,
     InvalidInput,
     IntegerOverflow,
-    CommandNotFound,
-    ArrayOverflow,
-    ArrayUnderflow,
-    NotSupported,
-    MissingRequired,
 } || std.mem.Allocator.Error;
 
 const E = ParseError;
@@ -37,7 +30,7 @@ pub fn parseAny(comptime T: type, arg: []const u8) ParseError!T {
         .float => return parseFloat(T, arg),
         .@"enum" => return parseEnum(T, arg),
         .@"union" => return parseUnion(T, arg),
-        .@"struct", .array, .pointer => @compileError("Complex types require a declaration of Argz: " ++ @typeName(T)),
+        .@"struct", .array, .pointer => @compileError("Complex types require a declaration: " ++ @typeName(T)),
         else => @compileError("Unsupported type: " ++ @typeName(T)),
     }
 }

@@ -5,8 +5,8 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const lib = b.addStaticLibrary(.{
-        .name = "argz",
-        .root_source_file = b.path("argz.zig"),
+        .name = "zargs",
+        .root_source_file = b.path("zargs.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -14,7 +14,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(lib);
 
     const lib_unit_tests = b.addTest(.{
-        .root_source_file = b.path("argz.zig"),
+        .root_source_file = b.path("zargs.zig"),
         .target = target,
         .optimize = optimize,
     });

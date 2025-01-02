@@ -1,15 +1,38 @@
 const std = @import("std");
 const testing = std.testing;
 
-args: []const [:0]const u8,
-index: usize = 0,
+const types = @import("types.zig");
+const string = types.string;
+
+args: []const string,
+index: usize = 1,
 short_index: usize = 0,
 short_chain: bool = false,
 
-const Item = union(enum) {
-    string: []const u8,
+pub const ItemKind = enum {
+    string,
+    short_option,
+    long_option,
+};
+
+pub const Item = union(ItemKind) {
+    string: string,
     short_option: u8,
-    long_option: []const u8,
+    long_option: string,
+
+    pub fn isHelp(self: Item) bool {
+        return switch (self) {
+            .long_option => std.mem.eql(u8, self.long_option, "help"),
+            else => false,
+        };
+    }
+
+    pub fn isOption(self: Item) bool {
+        return switch (self) {
+            .short_option, .long_option => true,
+            else => false,
+        };
+    }
 
     pub fn format(
         self: @This(),
@@ -23,9 +46,9 @@ const Item = union(enum) {
             return std.fmt.invalidFmtError(fmt, self);
         var buffer: [1024]u8 = undefined;
         const text = switch (self) {
-            .string => |string| string,
-            .short_option => |short| try bufPrint(&buffer, "-{c}", .{short}),
-            .long_option => |long| try bufPrint(&buffer, "--{s}", .{long}),
+            .string => |value| value,
+            .short_option => |value| try bufPrint(&buffer, "-{c}", .{value}),
+            .long_option => |value| try bufPrint(&buffer, "--{s}", .{value}),
         };
         try formatText(text, "s", options, writer);
     }
@@ -86,6 +109,10 @@ pub fn next(self: *Self) ?Item {
     return self.peek();
 }
 
+pub fn argv(self: Self) []const string {
+    return self.args[0..self.index];
+}
+
 const Self = @This();
 
 test Self {
@@ -97,6 +124,7 @@ test Self {
             "world",
             "-bcdefh",
         },
+        .index = 0,
     };
 
     try testing.expectEqualStrings(args.next().?.string, "hello");
