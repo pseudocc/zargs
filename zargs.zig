@@ -35,21 +35,18 @@ const Self = @This();
 
 arena: std.heap.ArenaAllocator,
 args: ArgIterator,
-env_map: std.process.EnvMap,
 file: std.fs.File.Writer,
 
 pub fn init(allocator: Allocator, args: []const cstring) !Self {
     return .{
         .arena = std.heap.ArenaAllocator.init(allocator),
         .args = ArgIterator{ .args = args },
-        .env_map = try std.process.getEnvMap(allocator),
         .file = std.io.getStdErr().writer(),
     };
 }
 
 pub fn deinit(self: *Self) void {
     self.arena.deinit();
-    self.env_map.deinit();
 }
 
 fn Next(comptime kind: ArgIterator.ItemKind) type {
@@ -258,8 +255,14 @@ fn parseFinal(self: *Self, comptime T: type) E!T {
     const env_params = final.parameters(.environment);
     inline for (env_params) |param| {
         const env = param.parameter.environment;
-        if (self.env_map.get(env.name)) |input| {
-            try parseFinalAny(T, param, &value, input, allocator);
+        for (std.os.environ) |cpair| {
+            const pair = std.mem.sliceTo(cpair, 0);
+            const eq = std.mem.indexOfScalar(u8, pair, '=') orelse continue;
+            const key = pair[0..eq];
+            const input = pair[eq + 1 ..];
+            if (std.mem.eql(u8, key, env.name)) {
+                try parseFinalAny(T, param, &value, input, allocator);
+            }
         }
     }
 
