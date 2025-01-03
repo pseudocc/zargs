@@ -7,6 +7,7 @@ pub const Final = @import("zargs/final.zig");
 const Command = @import("zargs/command.zig");
 const Help = @import("zargs/help.zig");
 const ArgIterator = @import("zargs/iterator.zig");
+pub const log = @import("zargs/log.zig");
 
 const types = @import("zargs/types.zig");
 pub const string = types.string;
@@ -23,13 +24,6 @@ pub const ParseError = error{
     MissingRequired,
 } || primary.ParseError || std.meta.IntToEnumError;
 const E = ParseError;
-
-const log = if (builtin.is_test) struct {
-    const debug = std.log.debug;
-    const info = std.log.info;
-    const warn = std.log.warn;
-    const err = std.log.warn;
-} else std.log.scoped(.zargs);
 
 const Self = @This();
 
@@ -60,10 +54,12 @@ fn next(self: *Self, comptime kind: ArgIterator.ItemKind) E!Next(kind) {
     }
     if (self.args.next()) |arg| {
         if (arg != kind) {
+            log.err("Unexpected argument: {}", .{arg});
             return E.UnexpectedArgument;
         }
         return @field(arg, @tagName(kind));
     }
+    log.err("Missing argument: {s}", .{@tagName(kind)});
     return E.MissingArgument;
 }
 
@@ -74,16 +70,22 @@ fn parseCommand(self: *Self, comptime T: type) E!T {
             self.file.print("{}", .{help}) catch {};
             return E.HelpRequested;
         }
+        if (arg.isOption()) {
+            log.err("Unknown option: {}", .{arg});
+            return E.UnknownOption;
+        }
     }
 
     const arg = try self.next(.string);
     inline for (std.meta.fields(T)) |field| {
         if (std.mem.eql(u8, field.name, arg)) {
+            log.debug("parseCommand: {s}", .{field.name});
             const value = try self.parse(field.type);
             return @unionInit(T, field.name, value);
         }
     }
 
+    log.err("Unknown command: {s}", .{arg});
     return E.UnknownCommand;
 }
 
@@ -104,6 +106,7 @@ fn countFinalMany(iterator: anytype) E!usize {
         return E.InvalidInput;
     }
     iterator.reset();
+    log.debug("countFinalMany -> {d}", .{i});
     return i;
 }
 
@@ -117,8 +120,6 @@ fn parseFinalAny(
     const field = param.Field(T);
     const this = field.ptrOf(container);
     const concrete_type = field.concreteType();
-
-    log.debug("Parsing {s} with {s}", .{ param.title(), input });
 
     const append = switch (param.parameter) {
         .named => |named| named.action == .append,
@@ -150,7 +151,10 @@ fn parseFinalAny(
             defer this.* = ptr;
 
             var parts = param.split(input);
-            const n = try countFinalMany(&parts);
+            const n = countFinalMany(&parts) catch |err| {
+                log.err("Failed to parse {s}", .{param.title()});
+                return err;
+            };
 
             ptr = try allocator.realloc(ptr, initial_len + n);
             for (ptr[initial_len..]) |*p| {
@@ -160,8 +164,12 @@ fn parseFinalAny(
         },
         .array => |info| {
             var parts = param.split(input);
-            const n = try countFinalMany(&parts);
+            const n = countFinalMany(&parts) catch |err| {
+                log.err("Failed to parse {s}", .{param.title()});
+                return err;
+            };
             if (n != info.len) {
+                log.err("Array length mismatch: {d} != {d}", .{ n, info.len });
                 return if (n > info.len) E.ArrayOverflow else E.ArrayUnderflow;
             }
 
@@ -261,6 +269,7 @@ fn parseFinal(self: *Self, comptime T: type) E!T {
             const key = pair[0..eq];
             const input = pair[eq + 1 ..];
             if (std.mem.eql(u8, key, env.name)) {
+                log.debug("parseFinal(env): {s}={s}", .{ env.name, input });
                 try parseFinalAny(T, param, &value, input, allocator);
             }
         }
@@ -295,6 +304,7 @@ fn parseFinal(self: *Self, comptime T: type) E!T {
                     const this = field.ptrOf(&value);
                     switch (named.action) {
                         .increment => |inc| {
+                            log.debug("parseFinal(opt,increment): {}", .{arg});
                             switch (@typeInfo(field.type)) {
                                 .int => {
                                     const former = this.*;
@@ -310,14 +320,18 @@ fn parseFinal(self: *Self, comptime T: type) E!T {
                         .assign => |maybe_constant| {
                             if (maybe_constant) |opaque_ptr| {
                                 const constant: *const field.type = @alignCast(@ptrCast(opaque_ptr));
+                                log.debug("parseFinal(opt,assign_constant): {} -> " ++
+                                    if (field.concreteType() == string) "{s}" else "{any}", .{ arg, constant });
                                 this.* = constant.*;
                             } else {
                                 const next_arg = try self.next(.string);
+                                log.debug("parseFinal(opt,assign): {} -> {s}", .{ arg, next_arg });
                                 try parseFinalAny(T, p, &value, next_arg, allocator);
                             }
                         },
                         .append => {
                             const next_arg = try self.next(.string);
+                            log.debug("parseFinal(opt,append): {} -> {s}", .{ arg, next_arg });
                             try parseFinalAny(T, p, &value, next_arg, allocator);
                         },
                     }
@@ -331,6 +345,7 @@ fn parseFinal(self: *Self, comptime T: type) E!T {
         } else {
             inline for (arg_params, 0..) |p, i| if (!arg_finishes[i]) {
                 const next_arg = self.next(.string) catch unreachable;
+                log.debug("parseFinal(arg): {s} -> {s}", .{ p.title(), next_arg });
                 try parseFinalAny(T, p, &value, next_arg, allocator);
                 arg_finishes[i] = true;
                 continue :args_loop;
