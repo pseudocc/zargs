@@ -31,7 +31,7 @@ arena: std.heap.ArenaAllocator,
 args: ArgIterator,
 file: std.fs.File.Writer,
 
-pub fn init(allocator: Allocator, args: []const cstring) !Self {
+pub fn init(allocator: Allocator, args: []const cstring) Self {
     return .{
         .arena = std.heap.ArenaAllocator.init(allocator),
         .args = ArgIterator{ .args = args },
@@ -389,7 +389,7 @@ fn e2ePrepare(self: *Self, args: []const cstring) void {
 }
 
 test "e2e" {
-    var parser = try init(testing.allocator, &.{});
+    var parser = init(testing.allocator, &.{});
     defer parser.deinit();
 
     {
