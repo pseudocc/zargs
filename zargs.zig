@@ -13,17 +13,8 @@ const types = @import("zargs/types.zig");
 pub const string = types.string;
 pub const cstring = types.cstring;
 
-const primary = @import("zargs/parse.zig");
-pub const ParseError = error{
-    UnknownCommand,
-    UnknownOption,
-    UnexpectedArgument,
-    HelpRequested,
-    ArrayOverflow,
-    ArrayUnderflow,
-    MissingRequired,
-} || primary.ParseError || std.meta.IntToEnumError;
-const E = ParseError;
+pub const primary = @import("zargs/parse.zig");
+const E = types.ParseError;
 
 const Self = @This();
 
@@ -91,12 +82,42 @@ fn parseCommand(self: *Self, comptime T: type) E!T {
 
 fn parseFinalOne(comptime T: type, arg: []const u8, allocator: Allocator) E!T {
     if (T == string) {
-        return try allocator.dupeZ(u8, arg);
+        return allocator.dupeZ(u8, arg);
     }
-    switch (@typeInfo(T)) {
-        .@"struct" => @compileError("Nested structs are not supported"),
-        else => return primary.parseAny(T, arg),
+    if (types.custom.parse_fn(T)) |parse_fn| {
+        return parse_fn(arg, allocator);
     }
+    return primary.parseAny(T, arg);
+}
+
+test parseFinalOne {
+    const A = struct {
+        x: i32,
+        y: i32 = 42,
+
+        pub fn parse(arg: []const u8, allocator: Allocator) E!@This() {
+            _ = allocator;
+            var parts = std.mem.splitScalar(u8, arg, ',');
+            const x_part = std.mem.trim(u8, parts.next() orelse return E.MissingRequired, " ");
+            const y_part = std.mem.trim(u8, parts.next() orelse return E.MissingRequired, " ");
+
+            var a = std.mem.zeroInit(@This(), .{});
+            if (x_part.len > 0) {
+                a.x = try primary.parseInt(i32, x_part);
+            }
+            if (y_part.len > 0) {
+                a.y = try primary.parseInt(i32, y_part);
+            }
+
+            return a;
+        }
+    };
+
+    const allocator = testing.allocator;
+    const a_1_2 = try parseFinalOne(A, "1,2", allocator);
+    try testing.expectEqualDeep(A{ .x = 1, .y = 2 }, a_1_2);
+    const a_1_default = try parseFinalOne(A, "1,", allocator);
+    try testing.expectEqualDeep(A{ .x = 1 }, a_1_default);
 }
 
 fn countFinalMany(iterator: anytype) E!usize {

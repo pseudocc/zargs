@@ -155,8 +155,8 @@ pub const Declaration = struct {
                 try std.fmt.format(writer, ": {s}", .{@typeName(c.type)});
             }
 
-            fn typeError(c: @This(), err: string) void {
-                std.fmt.comptimePrint("[{}]: {s}", .{ c, err });
+            fn typeError(c: @This(), err: string) string {
+                return std.fmt.comptimePrint("[{}]: {s}", .{ c, err });
             }
         };
 
@@ -197,6 +197,11 @@ pub const Declaration = struct {
                         switch (@typeInfo(concrete_child)) {
                             .pointer, .array => @compileError(closure.typeError("2D collections are not supported")),
                             .optional => @compileError(closure.typeError("Nested optional types are not supported")),
+                            .@"struct" => |child_info| {
+                                if (types.custom.parse_fn(child_info.type) == null) {
+                                    @compileError(closure.typeError("Child struct must have a parse function"));
+                                }
+                            },
                             else => {},
                         }
                     }
@@ -219,6 +224,11 @@ pub const Declaration = struct {
                         switch (@typeInfo(concrete_child)) {
                             .pointer, .array => @compileError(closure.typeError("2D collections are not supported")),
                             .optional => @compileError(closure.typeError("Nested optional types are not supported")),
+                            .@"struct" => |child_info| {
+                                if (types.custom.parse_fn(child_info.type) == null) {
+                                    @compileError(closure.typeError("Child struct must have a parse function"));
+                                }
+                            },
                             else => {},
                         }
                     }
@@ -228,7 +238,12 @@ pub const Declaration = struct {
                         @compileError(closure.typeError("Only tagged unions are supported"));
                     }
                 },
-                .@"enum", .@"struct", .int, .float, .bool => {},
+                .@"struct" => |info| {
+                    if (types.custom.parse_fn(info.type) == null) {
+                        @compileError(closure.typeError("Struct must have a parse function"));
+                    }
+                },
+                .@"enum", .int, .float, .bool => {},
                 else => @compileError(closure.typeError("Unsupported")),
             }
 
