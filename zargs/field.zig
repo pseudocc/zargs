@@ -105,7 +105,7 @@ pub const StructField = struct {
     pub fn maybeDefault(self: StructField) ?self.type {
         comptime {
             if (self.default_value) |value| {
-                const ptr: *const self.type = @ptrCast(value);
+                const ptr: *align(1) const self.type = @ptrCast(value);
                 const final = ptr.*;
                 return final;
             }
