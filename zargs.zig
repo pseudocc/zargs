@@ -12,6 +12,7 @@ pub const log = @import("zargs/log.zig");
 const types = @import("zargs/types.zig");
 pub const string = types.string;
 pub const cstring = types.cstring;
+pub const ParseError = types.ParseError;
 
 pub const primary = @import("zargs/parse.zig");
 const E = types.ParseError;
