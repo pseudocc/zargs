@@ -177,7 +177,18 @@ fn parseFinalAny(
                 return err;
             };
 
-            ptr = try allocator.realloc(ptr, initial_len + n);
+            const is_default =
+                if (comptime field.maybeDefault()) |default|
+                    @as(*const anyopaque, @ptrCast(ptr)) == @as(*const anyopaque, @ptrCast(default))
+                else
+                    false;
+
+            if (is_default) {
+                ptr = try allocator.alloc(info.child, initial_len + n);
+            } else {
+                ptr = try allocator.realloc(ptr, initial_len + n);
+            }
+
             for (ptr[initial_len..]) |*p| {
                 const part = parts.next().?;
                 p.* = try parseFinalOne(info.child, part, allocator);
