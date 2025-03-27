@@ -150,6 +150,7 @@ pub const StructField = struct {
                 .pointer => |info| format("[]{s}", .{formatType(info.child)}),
                 .optional => |info| format("?{s}", .{formatType(info.child)}),
                 .array => |info| format("[{d}]{s}", .{ info.len, formatType(info.child) }),
+                .@"struct" => types.custom.help_type(T),
                 .@"enum" => "enum",
                 else => @typeName(T),
             };

@@ -16,6 +16,8 @@ pub const ParseError = error{
 
 pub const custom = struct {
     pub const PARSEFN = "parse";
+    pub const HELPTYPE = "help_type";
+
     pub fn ParseFn(comptime T: type) type {
         return fn ([]const u8, std.mem.Allocator) ParseError!T;
     }
@@ -29,5 +31,12 @@ pub const custom = struct {
             @field(T, PARSEFN)
         else
             null;
+    }
+
+    pub fn help_type(comptime T: type) string {
+        return if (@hasDecl(T, HELPTYPE))
+            @field(T, HELPTYPE)
+        else
+            "";
     }
 };
