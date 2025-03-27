@@ -180,10 +180,10 @@ pub const Declaration = struct {
 
             switch (@typeInfo(concrete_type)) {
                 .pointer => |info| {
-                    if (info.size != .Slice) {
+                    if (info.size != .slice) {
                         @compileError(closure.typeError("Only support slices"));
                     }
-                    if (info.sentinel != null) {
+                    if (info.sentinel_ptr != null) {
                         @compileError(closure.typeError("Sentinel terminated slices are not supported"));
                     }
                     if (self.delimiter == null) {
@@ -210,7 +210,7 @@ pub const Declaration = struct {
                     if (info.len == 0) {
                         @compileError(closure.typeError("Array length must be greater than zero"));
                     }
-                    if (info.sentinel != null) {
+                    if (info.sentinel_ptr != null) {
                         @compileError(closure.typeError("Sentinel terminated arrays are not supported"));
                     }
                     if (self.delimiter == null) {

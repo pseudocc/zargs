@@ -38,7 +38,7 @@ pub const StructField = struct {
             .type = field.type,
             .container_type = T,
             .is_optional = @typeInfo(field.type) == .optional,
-            .default_value = field.default_value,
+            .default_value = field.default_value_ptr,
             .offset = @offsetOf(T, field.name),
         };
     }
