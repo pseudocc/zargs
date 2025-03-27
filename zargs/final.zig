@@ -238,8 +238,8 @@ pub const Declaration = struct {
                         @compileError(closure.typeError("Only tagged unions are supported"));
                     }
                 },
-                .@"struct" => |info| {
-                    if (types.custom.parse_fn(info.type) == null) {
+                .@"struct" => {
+                    if (types.custom.parse_fn(concrete_type) == null) {
                         @compileError(closure.typeError("Struct must have a parse function"));
                     }
                 },
