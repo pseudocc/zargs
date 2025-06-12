@@ -180,7 +180,10 @@ fn parseFinalAny(
 
             const is_default =
                 if (comptime field.maybeDefault()) |default|
-                    @as(*const anyopaque, @ptrCast(ptr)) == @as(*const anyopaque, @ptrCast(default))
+                    if (field.is_optional)
+                        ptr.len == 0
+                    else
+                        @intFromPtr(ptr.ptr) == @intFromPtr(default.ptr) and ptr.len == default.len
                 else
                     false;
 

@@ -8,4 +8,5 @@
         "zargs.zig",
         "zargs",
     },
+    .minimum_zig_version = "0.14.0",
 }
